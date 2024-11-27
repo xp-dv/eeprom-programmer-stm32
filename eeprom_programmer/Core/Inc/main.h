@@ -57,6 +57,7 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define BAUD_RATE 115200
 #define D7_Pin GPIO_PIN_0
 #define D7_GPIO_Port GPIOF
 #define D8_Pin GPIO_PIN_1
@@ -81,12 +82,59 @@ void Error_Handler(void);
 #define SWCLK_GPIO_Port GPIOA
 #define VCP_RX_Pin GPIO_PIN_15
 #define VCP_RX_GPIO_Port GPIOA
+#define WRITE_ENABLE_Pin GPIO_PIN_3
+#define WRITE_ENABLE_GPIO_Port GPIOB
+#define D12_Pin GPIO_PIN_4
+#define D12_GPIO_Port GPIOB
 #define D11_Pin GPIO_PIN_5
 #define D11_GPIO_Port GPIOB
 #define D5_Pin GPIO_PIN_6
 #define D5_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
+
+/**
+ * ? Pins to SN74HC595 Shift Registers
+ * D4 // Connect to SER (Serial)
+ * D3 // Connect to RCLK (Storage Register Clock)
+ * D1 // Connect to SRCLK (Shift Register Clock)
+ */
+
+/**
+ * ? Pins to AT28C16 EEPROM
+ * D13 // Connect to Write Enable (~WE)
+ */
+
+//* Data I/O Bus
+#define GET_DATA_BUS_PORT(bit) (\
+  (bit) == 0 ? (D5_GPIO_Port) : \
+  (bit) == 1 ? (D6_GPIO_Port) : \
+  (bit) == 2 ? (D7_GPIO_Port) : \
+  (bit) == 3 ? (D8_GPIO_Port) : \
+  (bit) == 4 ? (D9_GPIO_Port) : \
+  (bit) == 5 ? (D10_GPIO_Port) : \
+  (bit) == 6 ? (D11_GPIO_Port) : \
+  (bit) == 7 ? (D12_GPIO_Port) : ("0")\
+)
+#define GET_DATA_BUS_PIN(bit) (\
+  (bit) == 0 ? (D5_Pin) : \
+  (bit) == 1 ? (D6_Pin) : \
+  (bit) == 2 ? (D7_Pin) : \
+  (bit) == 3 ? (D8_Pin) : \
+  (bit) == 4 ? (D9_Pin) : \
+  (bit) == 5 ? (D10_Pin) : \
+  (bit) == 6 ? (D11_Pin) : \
+  (bit) == 7 ? (D12_Pin) : ("0")\
+)
+
+//* Data
+#define PACKET_SIZE 256U
+
+//* UART
+// Data sent in up to 8 packets of 256 bytes to cover the full 2048 byte memory
+#define CIRC_BUF_LEN (PACKET_SIZE + 1U) // data packet + terminator
+#define CIRC_BUF_MAX_INDEX (CIRC_BUF_LEN - 1U)
+#define UART_TX_BUF_LEN (PACKET_SIZE + 4U) // data packet + status "[XX]"
 
 /* USER CODE END Private defines */
 
