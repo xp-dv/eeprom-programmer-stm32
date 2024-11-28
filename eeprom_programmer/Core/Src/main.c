@@ -22,6 +22,11 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "circ_buf.h"
+#include "uart_rx.h"
+#include <stdint.h>
+#include <string.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -31,6 +36,30 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+/**
+ * @brief Data sent in up to 8 packets of 256 bytes to cover the full 16K memory
+ * (2048 bytes).
+ */
+#define DATA_PACKET_SIZE 256U
+/**
+ * @brief (ASCII-Coded Hex) Representing a single byte in hex using only the
+ * ASCII characters '0' to 'F' requires 2 characters, one for each digit.
+ */
+#define ACH_SIZE 2U
+/**
+ * @brief Total number of delimiter characters between each ASCII-coded byte for
+ * the entire packet.
+ */
+#define UART_PACKET_SPACES (DATA_PACKET_SIZE - 1U)
+/**
+ * @brief Every ACH number is followed by a separator character, except for the
+ * final number in the packet which is followed by the packet terminator. The
+ * last byte in the packet must be a NUL character. This is required for the
+ * circular buffer structure to function, and it is also helpful when working
+ * with strings.
+ */
+#define UART_PACKET_SIZE (DATA_PACKET_SIZE * (ACH_SIZE + sizeof(char)))
 
 /* USER CODE END PD */
 
@@ -44,6 +73,9 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
+uart_rx_handle_t uart_rx;
+circ_buf_handle_t circ_buf;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -56,6 +88,13 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+  circ_buf_write_byte(circ_buf, *(uart_rx_char(uart_rx)));
+
+  // Reactivate UART Interrupt RX
+  HAL_UART_Receive_IT(huart, uart_rx_char(uart_rx), 1U);
+}
 
 /* USER CODE END 0 */
 
@@ -91,6 +130,19 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  //* Start Message
+  uint8_t msg[UART_PACKET_SIZE] = "Program Start\n";
+  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen((char*)msg), HAL_MAX_DELAY);
+
+  //* Device Init
+  char delimiter = (char)' ';
+  char terminator = (char)'\n';
+  uart_rx = uart_rx_init(UART_PACKET_SIZE, delimiter, terminator);
+  circ_buf = circ_buf_init(UART_PACKET_SIZE);
+
+  // UART Interrupt RX Setup
+  HAL_UART_Receive_IT(&huart2, uart_rx_char(uart_rx), 1U);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -98,8 +150,12 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
+
+    HAL_UART_Transmit(&huart2, circ_buf_buffer(circ_buf), strlen((char*)circ_buf_buffer(circ_buf)), HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart2, (uint8_t*)(&terminator), 1U, HAL_MAX_DELAY);
+    HAL_Delay(250);
+
   }
   /* USER CODE END 3 */
 }

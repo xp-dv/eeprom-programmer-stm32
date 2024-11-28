@@ -127,15 +127,6 @@ void Error_Handler(void);
   (bit) == 7 ? (D12_Pin) : ("0")\
 )
 
-//* Data
-#define PACKET_SIZE 256U
-
-//* UART
-// Data sent in up to 8 packets of 256 bytes to cover the full 2048 byte memory
-#define CIRC_BUF_LEN (PACKET_SIZE + 1U) // data packet + terminator
-#define CIRC_BUF_MAX_INDEX (CIRC_BUF_LEN - 1U)
-#define UART_TX_BUF_LEN (PACKET_SIZE + 4U) // data packet + status "[XX]"
-
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
