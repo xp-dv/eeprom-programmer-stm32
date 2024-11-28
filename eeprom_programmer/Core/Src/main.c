@@ -24,6 +24,7 @@
 
 #include "circ_buf.h"
 #include "uart_rx.h"
+#include "unit_test.h"
 #include <stdint.h>
 #include <string.h>
 
@@ -37,30 +38,6 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-/**
- * @brief Data sent in up to 8 packets of 256 bytes to cover the full 16K memory
- * (2048 bytes).
- */
-#define DATA_PACKET_SIZE 256U
-/**
- * @brief (ASCII-Coded Hex) Representing a single byte in hex using only the
- * ASCII characters '0' to 'F' requires 2 characters, one for each digit.
- */
-#define ACH_SIZE 2U
-/**
- * @brief Total number of delimiter characters between each ASCII-coded byte for
- * the entire packet.
- */
-#define UART_PACKET_SPACES (DATA_PACKET_SIZE - 1U)
-/**
- * @brief Every ACH number is followed by a separator character, except for the
- * final number in the packet which is followed by the packet terminator. The
- * last byte in the packet must be a NUL character. This is required for the
- * circular buffer structure to function, and it is also helpful when working
- * with strings.
- */
-#define UART_PACKET_SIZE (DATA_PACKET_SIZE * (ACH_SIZE + sizeof(char)))
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -72,6 +49,10 @@
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+
+#ifdef UNIT_TEST
+char print_f[PRINTF_BUF_SIZE] = "";
+#endif
 
 uart_rx_handle_t uart_rx;
 circ_buf_handle_t circ_buf;
@@ -89,12 +70,7 @@ static void MX_USART2_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-  circ_buf_write_byte(circ_buf, *(uart_rx_char(uart_rx)));
 
-  // Reactivate UART Interrupt RX
-  HAL_UART_Receive_IT(huart, uart_rx_char(uart_rx), 1U);
-}
 
 /* USER CODE END 0 */
 
@@ -137,8 +113,10 @@ int main(void)
   //* Device Init
   char delimiter = (char)' ';
   char terminator = (char)'\n';
-  uart_rx = uart_rx_init(UART_PACKET_SIZE, delimiter, terminator);
+  uart_rx = uart_rx_init(DATA_PACKET_SIZE, delimiter, terminator);
   circ_buf = circ_buf_init(UART_PACKET_SIZE);
+
+  HAL_Delay(500); // Startup Delay
 
   // UART Interrupt RX Setup
   HAL_UART_Receive_IT(&huart2, uart_rx_char(uart_rx), 1U);
@@ -150,11 +128,15 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
 
-    HAL_UART_Transmit(&huart2, circ_buf_buffer(circ_buf), strlen((char*)circ_buf_buffer(circ_buf)), HAL_MAX_DELAY);
-    HAL_UART_Transmit(&huart2, (uint8_t*)(&terminator), 1U, HAL_MAX_DELAY);
-    HAL_Delay(250);
+    status_t get_packet = uart_rx_read_packet(uart_rx, circ_buf);
+    printf("Packet: %d\n", get_packet);
+    dump_hex(uart_rx_packet(uart_rx), uart_rx_size(uart_rx), 0x20);
+    printf("Buffer:\n");
+    dump_chars(circ_buf_buffer(circ_buf), (circ_buf_size(circ_buf) + 1U), 0x20);
+    HAL_Delay(8000);
 
   }
   /* USER CODE END 3 */
@@ -290,6 +272,17 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+/**
+ * @brief UART Interrupt Callback
+ * @param huart HAL UART Structure handle
+ */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+  circ_buf_write_ov_byte(circ_buf, *(uart_rx_char(uart_rx)));
+
+  // Reactivate UART Interrupt RX
+  HAL_UART_Receive_IT(huart, uart_rx_char(uart_rx), 1U);
+}
 
 /* USER CODE END 4 */
 

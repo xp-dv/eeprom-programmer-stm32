@@ -13,13 +13,9 @@
  */
 #pragma once
 
+#include "unit_test.h"
 #include <stdlib.h>
 #include <stdint.h>
-
-// #ifndef UNIT_TEST
-// /** @brief Implements public testing functions. */
-// #define UNIT_TEST
-// #endif
 
 typedef enum circ_buf_status {
   CIRC_BUF_ERR = -1,
@@ -155,4 +151,4 @@ void dump_hex(const uint8_t* start, size_t size, const size_t columns);
  */
 void dump_chars(const uint8_t* start, size_t size, const size_t columns);
 
-#endif // UNIT_TEST
+#endif /* UNIT_TEST */

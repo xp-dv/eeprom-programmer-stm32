@@ -7,14 +7,12 @@
  * @copyright Apache-2.0 License
  */
 #include "circ_buf.h"
+#include "main.h" // Gives assert_param
+#include "unit_test.h" // UART printf()
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <assert.h>
 
-#ifdef UNIT_TEST
-#include <stdio.h>
-#endif
 
 /**
  * @struct circ_buf
@@ -38,11 +36,11 @@ static void increment_head(const circ_buf_handle_t circ_buf);
 
 circ_buf_handle_t circ_buf_init(size_t buf_size) {
   // Ensure buf_size is within possible range
-  assert(buf_size > 0 && buf_size < SIZE_MAX);
+  assert_param(buf_size > 0 && buf_size < SIZE_MAX);
 
   // Allocate dynamic memory for the structure
   circ_buf_handle_t circ_buf = malloc(sizeof(struct circ_buf));
-  assert(circ_buf); // Ensure allocation successful
+  assert_param(circ_buf); // Ensure allocation successful
 
   // Internally, memory size = buf size + 1 due to how "buffer full" is checked
   circ_buf->buf_size = buf_size;
@@ -50,18 +48,18 @@ circ_buf_handle_t circ_buf_init(size_t buf_size) {
 
   // Allocate dynamic memory for the buffer
   uint8_t* buffer = calloc(circ_buf->mem_size, sizeof(uint8_t));
-  assert(buffer); // Ensure allocation successful
+  assert_param(buffer); // Ensure allocation successful
   circ_buf->buf = buffer;
 
   // Initialize head/tail (read/write) indices
   circ_buf_reset(circ_buf);
-  assert(circ_buf_is_empty(circ_buf)); // Ensure head and tail initialized to 0
+  assert_param(circ_buf_is_empty(circ_buf)); // Ensure head and tail initialized to 0
 
   return circ_buf;
 }
 
 void circ_buf_reset(const circ_buf_handle_t circ_buf) {
-  assert(circ_buf); // Ensure handle
+  assert_param(circ_buf); // Ensure handle
 
   // Reset elements
   circ_buf->head = 0U;
@@ -69,14 +67,14 @@ void circ_buf_reset(const circ_buf_handle_t circ_buf) {
 }
 
 void circ_buf_clear(const circ_buf_handle_t circ_buf) {
-  assert(circ_buf); // Ensure handle
+  assert_param(circ_buf); // Ensure handle
 
   // Set memory to 0
   memset(circ_buf, 0U, circ_buf->mem_size);
 }
 
 void circ_buf_free(const circ_buf_handle_t circ_buf) {
-  assert(circ_buf); // Ensure handle
+  assert_param(circ_buf); // Ensure handle
 
   free(circ_buf); // Release allocated memory
 }
@@ -84,7 +82,7 @@ void circ_buf_free(const circ_buf_handle_t circ_buf) {
 uint8_t circ_buf_is_empty(const circ_buf_handle_t circ_buf) {
   uint8_t state = 0; // Assume not empty
 
-  assert(circ_buf); // Ensure handle
+  assert_param(circ_buf); // Ensure handle
 
   state = (circ_buf->tail == circ_buf->head); // Check if buffer is empty
 
@@ -94,7 +92,7 @@ uint8_t circ_buf_is_empty(const circ_buf_handle_t circ_buf) {
 uint8_t circ_buf_is_full(const circ_buf_handle_t circ_buf) {
   uint8_t state = 0; // Assume not full
 
-  assert(circ_buf); // Ensure handle
+  assert_param(circ_buf); // Ensure handle
 
   // Wrap back to 0 if next index results in the tail overlapping the head
   size_t tail = circ_buf->tail + 1U;
@@ -108,7 +106,7 @@ uint8_t circ_buf_is_full(const circ_buf_handle_t circ_buf) {
 }
 
 size_t circ_buf_len(const circ_buf_handle_t circ_buf) {
-  assert(circ_buf); // Ensure handle
+  assert_param(circ_buf); // Ensure handle
 
   size_t len;
   if (!circ_buf_is_full(circ_buf)) {
@@ -125,13 +123,13 @@ size_t circ_buf_len(const circ_buf_handle_t circ_buf) {
 }
 
 size_t circ_buf_size(const circ_buf_handle_t circ_buf) {
-  assert(circ_buf); // Ensure handle
+  assert_param(circ_buf); // Ensure handle
 
   return (circ_buf->buf_size);
 }
 
 uint8_t* circ_buf_buffer(const circ_buf_handle_t circ_buf) {
-  assert(circ_buf); // Ensure handle
+  assert_param(circ_buf); // Ensure handle
 
   return circ_buf->buf;
 }
@@ -139,7 +137,7 @@ uint8_t* circ_buf_buffer(const circ_buf_handle_t circ_buf) {
 circ_buf_status_t circ_buf_write_byte(const circ_buf_handle_t circ_buf, uint8_t data) {
   circ_buf_status_t status = CIRC_BUF_ERR; // Assume failure
 
-  assert(circ_buf); // Ensure handle
+  assert_param(circ_buf); // Ensure handle
 
   // Don't write byte if buffer is full, otherwise return failure
   if (!circ_buf_is_full(circ_buf)) {
@@ -153,7 +151,7 @@ circ_buf_status_t circ_buf_write_byte(const circ_buf_handle_t circ_buf, uint8_t 
 }
 
 void circ_buf_write_ov_byte(const circ_buf_handle_t circ_buf, uint8_t data) {
-  assert(circ_buf); // Ensure handle
+  assert_param(circ_buf); // Ensure handle
 
   circ_buf->buf[circ_buf->tail] = data;
 
@@ -163,7 +161,7 @@ void circ_buf_write_ov_byte(const circ_buf_handle_t circ_buf, uint8_t data) {
 circ_buf_status_t circ_buf_read_byte(const circ_buf_handle_t circ_buf, uint8_t* dest) {
   circ_buf_status_t status = CIRC_BUF_ERR; // Assume failure
 
-  assert(circ_buf && dest); // Ensure handle and destination
+  assert_param(circ_buf && dest); // Ensure handle and destination
 
   // Don't read byte if buffer is empty, otherwise return failure
   if (!circ_buf_is_empty(circ_buf)) {
@@ -179,7 +177,7 @@ circ_buf_status_t circ_buf_read_byte(const circ_buf_handle_t circ_buf, uint8_t* 
 //* Private Functions
 
 static void increment_tail(const circ_buf_handle_t circ_buf) {
-  assert(circ_buf); // Ensure handle
+  assert_param(circ_buf); // Ensure handle
 
   // Reset head index first if buffer is full
   if (circ_buf_is_full(circ_buf)) {
@@ -197,7 +195,7 @@ static void increment_tail(const circ_buf_handle_t circ_buf) {
 }
 
 static void increment_head(const circ_buf_handle_t circ_buf) {
-  assert(circ_buf); // Ensure handle
+  assert_param(circ_buf); // Ensure handle
 
   // Increment head index
   // Faster than index + 1 % mem_size
@@ -211,12 +209,16 @@ static void increment_head(const circ_buf_handle_t circ_buf) {
 #ifdef UNIT_TEST
 
 void dump_indices(const circ_buf_handle_t circ_buf) {
-  printf("Head: %zd\n", circ_buf->head);
-  printf("Tail: %zd\n", circ_buf->tail);
+  printf("Head: %u\n", circ_buf->head);
+  printf("Tail: %u\n", circ_buf->tail);
 }
 
 void dump_hex(const uint8_t* start, size_t size, const size_t columns) {
-  assert(start && size && columns); // Ensure arguments
+  // Ensure arguments
+  if (!(start && size && columns)) {
+    printf("Invalid Args\n");
+    return;
+  }
 
   size_t multirow = (columns != SIZE_MAX);
 
@@ -228,7 +230,7 @@ void dump_hex(const uint8_t* start, size_t size, const size_t columns) {
     // Jump to next row
     if (multirow) {
       if ((i > 0) && (i < size) && (i % columns == 0)) {
-        printf("\n  %04zX:", i);
+        printf("\n  %04X:", i);
       }
     }
     // Print data
@@ -240,11 +242,15 @@ void dump_hex(const uint8_t* start, size_t size, const size_t columns) {
     }
   }
 
-  putchar('\n');
+  printf("\n");
 }
 
 void dump_chars(const uint8_t* start, size_t size, const size_t columns) {
-  assert(start && size && columns); // Ensure arguments
+  // Ensure arguments
+  if (!(start && size && columns)) {
+    printf("Invalid Args\n");
+    return;
+  }
 
   size_t multirow = (columns != SIZE_MAX);
 
@@ -256,7 +262,7 @@ void dump_chars(const uint8_t* start, size_t size, const size_t columns) {
     // Jump to next row
     if (multirow) {
       if ((i > 0) && (i < size) && (i % columns == 0)) {
-        printf("\n  %04zX:", i);
+        printf("\n  %04X:", i);
       }
     }
     // Print data
@@ -274,7 +280,7 @@ void dump_chars(const uint8_t* start, size_t size, const size_t columns) {
     }
   }
 
-  putchar('\n');
+  printf("\n");
 }
 
-#endif // UNIT_TEST
+#endif /* UNIT_TEST */

@@ -47,6 +47,35 @@ extern "C" {
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
 
+/**
+ * @brief Enables STM32 assert_param() function for ensuring a function's
+ * parameters. Failing an assert typically result in program termination.
+ */
+#define USE_FULL_ASSERT 1U
+/**
+ * @brief Data sent in up to 8 packets of 256 bytes to cover the full 16K memory
+ * (2048 bytes).
+ */
+#define DATA_PACKET_SIZE 256U
+/**
+ * @brief (ASCII-Coded Hex) Representing a single byte in hex using only the
+ * ASCII characters '0' to 'F' requires 2 characters, one for each digit.
+ */
+#define ACH_SIZE 2U
+/**
+ * @brief Total number of delimiter characters between each ASCII-coded byte for
+ * the entire packet.
+ */
+#define UART_PACKET_SPACES (DATA_PACKET_SIZE - 1U)
+/**
+ * @brief Every ACH number is followed by a separator character, except for the
+ * final number in the packet which is followed by the packet terminator. The
+ * last byte in the packet must be a NUL character. This is required for the
+ * circular buffer structure to function, and it is also helpful when working
+ * with strings.
+ */
+#define UART_PACKET_SIZE (DATA_PACKET_SIZE * (ACH_SIZE + sizeof(char)))
+
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
@@ -57,7 +86,7 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define BAUD_RATE 115200
+#define BAUD_RATE 9600
 #define D7_Pin GPIO_PIN_0
 #define D7_GPIO_Port GPIOF
 #define D8_Pin GPIO_PIN_1
