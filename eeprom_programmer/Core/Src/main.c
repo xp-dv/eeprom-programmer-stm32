@@ -24,7 +24,7 @@
 
 #include "circ_buf.h"
 #include "uart_rx.h"
-#include "unit_test.h"
+#include "print.h" // UART printf() and debugf()
 #include <stdint.h>
 #include <string.h>
 
@@ -32,6 +32,13 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+
+typedef enum system_state {
+  STARTUP_STATE,
+  IDLE_STATE,
+  READ_STATE,
+  WRITE_STATE,
+} system_state_t;
 
 /* USER CODE END PTD */
 
@@ -50,9 +57,7 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
-#ifdef UNIT_TEST
-char print_f[PRINTF_BUF_SIZE] = "";
-#endif
+char printf_buffer[PRINTF_BUF_SIZE] = "";
 
 uart_rx_handle_t uart_rx;
 circ_buf_handle_t circ_buf;
@@ -70,7 +75,82 @@ static void MX_USART2_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+//* Private Functions
 
+void print_status(uart_rx_status_t status) {
+  printf("[%02d]", status);
+}
+
+//* State Event Handlers
+
+system_state_t startup_state_handler(system_state_t system_state) {
+  // Startup Delay
+  HAL_Delay(500);
+
+  // Startup Message
+  uint8_t msg[UART_PACKET_SIZE] = "========== EEPROM PROGRAMMER ==========\n";
+  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen((char*)msg), HAL_MAX_DELAY);
+
+  // Init Circular Buffer
+  circ_buf = circ_buf_init(UART_PACKET_SIZE);
+
+  // Init Packet Buffer
+  char delimiter = (char)' ';
+  char terminator = (char)'\n';
+  uart_rx = uart_rx_init(DATA_PACKET_SIZE, delimiter, terminator);
+
+  // UART Interrupt RX Setup
+  HAL_UART_Receive_IT(&huart2, uart_rx_char(uart_rx), 1U);
+
+  // Startup Delay
+  HAL_Delay(500);
+
+  return IDLE_STATE;
+}
+
+system_state_t idle_state_handler(system_state_t system_state) {
+  static uart_rx_status_t status = UART_RX_EMPTY;
+  uart_rx_status_t new_status = parse_instruction(uart_rx, circ_buf);
+  if (new_status == UART_RX_VALID_PACKET) {
+    print_status(new_status);
+    switch (uart_rx_instruction(uart_rx)) {
+    case READ_INSTRUCTION:
+      return READ_STATE;
+      break;
+    case WRITE_INSTRUCTION:
+      return WRITE_STATE;
+      break;
+
+    default:
+      printf("[Invalid Instruction]\n");
+      return IDLE_STATE;
+      break;
+    }
+  } else if ((new_status != UART_RX_EMPTY) && (new_status != status)) {
+    print_status(new_status);
+    printf("[Invalid Instruction]\n");
+
+    #ifdef UNIT_TEST
+    debugf("Packet:\n");
+    dump_hex(uart_rx_packet(uart_rx), uart_rx_size(uart_rx), 0x20);
+    debugf("Buffer:\n");
+    dump_chars(circ_buf_buffer(circ_buf), (circ_buf_size(circ_buf) + 1U), 0x20);
+    #endif
+  }
+  status = new_status;
+  HAL_Delay(1000 / PACKET_POLLING_RATE);
+  return IDLE_STATE;
+}
+
+system_state_t read_state_handler(system_state_t system_state) {
+  printf("[Read]\n");
+  return IDLE_STATE;
+}
+
+system_state_t write_state_handler(system_state_t system_state) {
+  printf("[Write]\n");
+  return IDLE_STATE;
+}
 
 /* USER CODE END 0 */
 
@@ -106,39 +186,40 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  //* Start Message
-  uint8_t msg[UART_PACKET_SIZE] = "Program Start\n";
-  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen((char*)msg), HAL_MAX_DELAY);
-
-  //* Device Init
-  char delimiter = (char)' ';
-  char terminator = (char)'\n';
-  uart_rx = uart_rx_init(DATA_PACKET_SIZE, delimiter, terminator);
-  circ_buf = circ_buf_init(UART_PACKET_SIZE);
-
-  HAL_Delay(500); // Startup Delay
-
-  // UART Interrupt RX Setup
-  HAL_UART_Receive_IT(&huart2, uart_rx_char(uart_rx), 1U);
+  //* Next State Variable
+  system_state_t system_state = STARTUP_STATE;
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
+  while (1) {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 
-    status_t get_packet = uart_rx_read_packet(uart_rx, circ_buf);
-    printf("Packet: %d\n", get_packet);
-    dump_hex(uart_rx_packet(uart_rx), uart_rx_size(uart_rx), 0x20);
-    printf("Buffer:\n");
-    dump_chars(circ_buf_buffer(circ_buf), (circ_buf_size(circ_buf) + 1U), 0x20);
-    HAL_Delay(8000);
+    //* State Handlers
+    // Perform functions for given state, then return the value of the next state
+    switch (system_state) {
+    case STARTUP_STATE:
+      system_state = startup_state_handler(system_state);
+      break;
+    case IDLE_STATE:
+      system_state = idle_state_handler(system_state);
+      break;
+    case READ_STATE:
+      system_state = read_state_handler(system_state);
+      break;
+    case WRITE_STATE:
+      system_state = write_state_handler(system_state);
+      break;
 
+    default:
+      system_state = startup_state_handler(system_state);
+      break;
+    }
   }
+
   /* USER CODE END 3 */
 }
 

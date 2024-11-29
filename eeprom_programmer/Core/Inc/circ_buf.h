@@ -13,7 +13,7 @@
  */
 #pragma once
 
-#include "unit_test.h"
+#include "print.h" // UART printf() and debugf()
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -51,6 +51,12 @@ circ_buf_handle_t circ_buf_init(size_t size);
  * @param circ_buf Pointer to a circular buffer instance.
  */
 void circ_buf_reset(const circ_buf_handle_t circ_buf);
+/**
+ * @brief Sets the entire internal buffer of the circular buffer struct to 0.
+ * 
+ * @param circ_buf Pointer to a circular buffer instance.
+ */
+void circ_buf_clear(const circ_buf_handle_t circ_buf);
 /**
  * @brief Releases the dynamically allocated memory of the circular buffer
  * structure.

@@ -8,7 +8,7 @@
  */
 #include "circ_buf.h"
 #include "main.h" // Gives assert_param
-#include "unit_test.h" // UART printf()
+#include "print.h" // UART debugf() and debugf()
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -69,8 +69,10 @@ void circ_buf_reset(const circ_buf_handle_t circ_buf) {
 void circ_buf_clear(const circ_buf_handle_t circ_buf) {
   assert_param(circ_buf); // Ensure handle
 
+  // Reset indices
+  circ_buf_reset(circ_buf);
   // Set memory to 0
-  memset(circ_buf, 0U, circ_buf->mem_size);
+  memset(circ_buf->buf, 0U, circ_buf->mem_size);
 }
 
 void circ_buf_free(const circ_buf_handle_t circ_buf) {
@@ -206,63 +208,63 @@ static void increment_head(const circ_buf_handle_t circ_buf) {
 
 //* Public Testing Functions
 
-#ifdef UNIT_TEST
+// #ifdef UNIT_TEST
 
 void dump_indices(const circ_buf_handle_t circ_buf) {
-  printf("Head: %u\n", circ_buf->head);
-  printf("Tail: %u\n", circ_buf->tail);
+  debugf("Head: %u\n", circ_buf->head);
+  debugf("Tail: %u\n", circ_buf->tail);
 }
 
 void dump_hex(const uint8_t* start, size_t size, const size_t columns) {
   // Ensure arguments
   if (!(start && size && columns)) {
-    printf("Invalid Args\n");
+    debugf("Invalid Args\n");
     return;
   }
 
   size_t multirow = (columns != SIZE_MAX);
 
   if (multirow) {
-    printf("  0000:");
+    debugf("  0000:");
   }
 
   for (size_t i = 0; i < size; ++i) {
     // Jump to next row
     if (multirow) {
       if ((i > 0) && (i < size) && (i % columns == 0)) {
-        printf("\n  %04X:", i);
+        debugf("\n  %04X:", i);
       }
     }
     // Print data
     uint8_t c = start[i];
     if (c == 0) {
-      printf("  - ");
+      debugf("  - ");
     } else {
-      printf(" x%02X", c % 0x100U);
+      debugf(" x%02X", c % 0x100U);
     }
   }
 
-  printf("\n");
+  debugf("\n");
 }
 
 void dump_chars(const uint8_t* start, size_t size, const size_t columns) {
   // Ensure arguments
   if (!(start && size && columns)) {
-    printf("Invalid Args\n");
+    debugf("Invalid Args\n");
     return;
   }
 
   size_t multirow = (columns != SIZE_MAX);
 
   if (multirow) {
-    printf("  0000:");
+    debugf("  0000:");
   }
 
   for (size_t i = 0; i < size; ++i) {
     // Jump to next row
     if (multirow) {
       if ((i > 0) && (i < size) && (i % columns == 0)) {
-        printf("\n  %04X:", i);
+        debugf("\n  %04X:", i);
       }
     }
     // Print data
@@ -270,17 +272,17 @@ void dump_chars(const uint8_t* start, size_t size, const size_t columns) {
     if (c < 0x20 || c >= 0x7F) { // 0x20 = SPACE, 0x7F = DEL
       // Handle non-printable characters
       if (c == 0) {
-        printf("  - ");
+        debugf("  - ");
       } else {
-        printf(" x%02X", c % 0x100U);
+        debugf(" x%02X", c % 0x100U);
       }
     } else {
       // Handle printable characters
-      printf(" '%c'", c);
+      debugf(" '%c'", c);
     }
   }
 
-  printf("\n");
+  debugf("\n");
 }
 
-#endif /* UNIT_TEST */
+// #endif /* UNIT_TEST */

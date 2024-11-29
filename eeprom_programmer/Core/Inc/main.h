@@ -76,6 +76,8 @@ extern "C" {
  */
 #define UART_PACKET_SIZE (DATA_PACKET_SIZE * (ACH_SIZE + sizeof(char)))
 
+#define PACKET_POLLING_RATE 4 // Hz
+
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
