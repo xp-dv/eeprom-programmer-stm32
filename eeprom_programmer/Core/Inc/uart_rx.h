@@ -27,11 +27,11 @@ typedef struct uart_rx* uart_rx_handle_t;
 
 uart_rx_handle_t uart_rx_init(size_t packet_size, char delimiter, char terminator);
 
-uart_rx_status_t parse_instruction(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf);
+uart_rx_status_t uart_rx_parse_instruction(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf);
 
-uart_rx_status_t uart_rx_read_packet(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, uart_rx_status_t status);
+uart_rx_status_t uart_rx_parse_address(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, eeprom_handle_t eeprom, address_mode_t mode, uart_rx_status_t status);
 
-uart_rx_status_t uart_rx_read_ach(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, uint8_t* dest);
+uart_rx_status_t uart_rx_parse_data(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, uart_rx_status_t status);
 
 void uart_rx_clear(const uart_rx_handle_t uart_rx);
 

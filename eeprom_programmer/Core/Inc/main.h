@@ -37,6 +37,19 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
+typedef enum address_mode {
+  MODE_SINGLE_ADDRESS = 1,
+  MODE_MULTI_ADDRESS,
+} address_mode_t;
+
+typedef struct eeprom {
+  address_mode_t mode;
+  uint16_t start_address;
+  uint16_t end_address;
+} eeprom_t;
+
+typedef struct eeprom* eeprom_handle_t;
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -77,6 +90,10 @@ extern "C" {
 #define UART_PACKET_SIZE (DATA_PACKET_SIZE * (ACH_SIZE + sizeof(char)))
 
 #define PACKET_POLLING_RATE 4 // Hz
+
+#define EEPROM_START_ADDRESS 0
+
+#define EEPROM_MEMORY_SIZE 2048 // Bytes
 
 /* USER CODE END EM */
 

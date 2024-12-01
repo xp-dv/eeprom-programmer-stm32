@@ -61,6 +61,7 @@ char printf_buffer[PRINTF_BUF_SIZE] = "";
 
 uart_rx_handle_t uart_rx;
 circ_buf_handle_t circ_buf;
+eeprom_handle_t eeprom;
 
 /* USER CODE END PV */
 
@@ -91,13 +92,21 @@ system_state_t startup_state_handler(system_state_t system_state) {
   uint8_t msg[UART_PACKET_SIZE] = "========== EEPROM PROGRAMMER ==========\n";
   HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen((char*)msg), HAL_MAX_DELAY);
 
-  // Init Circular Buffer
+  // Init Circular Buffer Struct
   circ_buf = circ_buf_init(UART_PACKET_SIZE);
 
-  // Init Packet Buffer
+  // Init UART Rx Struct
   char delimiter = (char)' ';
   char terminator = (char)'\n';
   uart_rx = uart_rx_init(DATA_PACKET_SIZE, delimiter, terminator);
+
+  // Init EEPROM Struct
+  eeprom_t at28c16 = {
+    .mode = MODE_SINGLE_ADDRESS,
+    .start_address = 0U,
+    .end_address = 0U,
+  };
+  eeprom = &at28c16;
 
   // UART Interrupt RX Setup
   HAL_UART_Receive_IT(&huart2, uart_rx_char(uart_rx), 1U);
@@ -110,7 +119,7 @@ system_state_t startup_state_handler(system_state_t system_state) {
 
 system_state_t idle_state_handler(system_state_t system_state) {
   static uart_rx_status_t status = UART_RX_EMPTY;
-  uart_rx_status_t new_status = parse_instruction(uart_rx, circ_buf);
+  uart_rx_status_t new_status = uart_rx_parse_instruction(uart_rx, circ_buf);
   if (new_status == UART_RX_VALID_PACKET) {
     print_status(new_status);
     switch (uart_rx_instruction(uart_rx)) {

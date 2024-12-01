@@ -10,13 +10,16 @@ struct uart_rx {
   uint8_t* packet;
   size_t packet_size;
   uint8_t coded_byte_size; // Size of 1 byte represented in ASCII-Coded hex
+  uint8_t coded_address_size; // Chars required to represent EEPROM_MEMORY_SIZE in ASCII-Coded hex
   char delimiter;
   char terminator;
 };
 
 //* Private Function Prototypes
 
-static ssize_t strtohex(char* str);
+uart_rx_status_t uart_rx_strtohex(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, size_t* dest, uint8_t coded_size);
+
+static ssize_t strtohex(uint8_t* str);
 
 //* Public Functions
 
@@ -36,13 +39,14 @@ uart_rx_handle_t uart_rx_init(size_t packet_size, char delimiter, char terminato
   uart_rx->packet = packet;
   uart_rx->packet_size = packet_size;
   uart_rx->coded_byte_size = 2U;
+  uart_rx->coded_address_size = 3U;
   uart_rx->delimiter = delimiter;
   uart_rx->terminator = terminator;
 
   return uart_rx;
 }
 
-uart_rx_status_t parse_instruction(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf) {
+uart_rx_status_t uart_rx_parse_instruction(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf) {
   // Check empty
   if ((circ_buf_read_byte(circ_buf, uart_rx->packet) < CIRC_BUF_OK) ||
   (circ_buf_read_byte(circ_buf, &(uart_rx->packet[1])) < CIRC_BUF_OK) ) {
@@ -59,9 +63,9 @@ uart_rx_status_t parse_instruction(const uart_rx_handle_t uart_rx, const circ_bu
   return UART_RX_VALID_PACKET;
 }
 
-uart_rx_status_t uart_rx_read_packet(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, uart_rx_status_t status) {
-  for (int i = 0; i < uart_rx->packet_size; ++i) {
-    status = uart_rx_read_ach(uart_rx, circ_buf, &(uart_rx->packet[i]));
+uart_rx_status_t uart_rx_parse_address(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, eeprom_handle_t eeprom, address_mode_t mode, uart_rx_status_t status) {
+  for (uint8_t i = 0U; i < mode; ++i) {
+    status = uart_rx_strtohex(uart_rx, circ_buf, (size_t*)&eeprom->start_address, uart_rx->coded_address_size);
     if (status != UART_RX_VALID_DATA) {
       circ_buf_clear(circ_buf);
       return status;
@@ -71,12 +75,24 @@ uart_rx_status_t uart_rx_read_packet(const uart_rx_handle_t uart_rx, const circ_
   return status;
 }
 
-uart_rx_status_t uart_rx_read_ach(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, uint8_t* dest) {
+uart_rx_status_t uart_rx_parse_data(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, uart_rx_status_t status) {
+  for (size_t i = 0U; i < uart_rx->packet_size; ++i) {
+    status = uart_rx_strtohex(uart_rx, circ_buf, (size_t*)&(uart_rx->packet[i]), uart_rx->coded_byte_size);
+    if (status != UART_RX_VALID_DATA) {
+      circ_buf_clear(circ_buf);
+      return status;
+    }
+  }
+
+  return status;
+}
+
+uart_rx_status_t uart_rx_strtohex(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, size_t* dest, uint8_t coded_size) {
   uart_rx_status_t status = UART_RX_INVALID_DATA; // Assume failure
 
   // Read characters from buffer
-  uint8_t* byte = calloc((uart_rx->coded_byte_size + 2U /* delimiter + NUL */), sizeof(uint8_t));
-  for (uint8_t i = 0; i < uart_rx->coded_byte_size; ++i) {
+  uint8_t* byte = calloc((coded_size + 2U /* delimiter + NUL */), sizeof(uint8_t));
+  for (uint8_t i = 0; i < coded_size; ++i) {
     if (circ_buf_read_byte(circ_buf, (&byte[i])) < CIRC_BUF_OK) {
       free(byte);
       return UART_RX_EMPTY;
@@ -84,22 +100,22 @@ uart_rx_status_t uart_rx_read_ach(const uart_rx_handle_t uart_rx, const circ_buf
   }
 
   // Convert characters to hex
-  ssize_t data = strtohex((char*)byte);
+  ssize_t data = strtohex(byte);
   if (data < 0) {
     return UART_RX_INVALID_DATA;
   } else {
-    data = (uint8_t)data; // Convert to unsigned
+    data = data; // Convert to unsigned
   }
 
   // Check if data is followed by delimiter (next byte) or terminator (end of packet)
-  if (circ_buf_read_byte(circ_buf, (&byte[uart_rx->coded_byte_size])) < CIRC_BUF_OK) {
+  if (circ_buf_read_byte(circ_buf, (&byte[coded_size])) < CIRC_BUF_OK) {
     free(byte);
     return UART_RX_EMPTY;
   }
-  if (byte[uart_rx->coded_byte_size] == uart_rx->delimiter) {
+  if (byte[coded_size] == uart_rx->delimiter) {
     // Data is valid if delimiter character follows the byte
     status = UART_RX_VALID_DATA;
-  } else if (byte[uart_rx->coded_byte_size] == uart_rx->terminator) {
+  } else if (byte[coded_size] == uart_rx->terminator) {
     // Both data and packet are valid if terminator character follows the byte
     status = UART_RX_VALID_PACKET;
   } else {
@@ -144,10 +160,12 @@ size_t uart_rx_size(const uart_rx_handle_t uart_rx) {
   return (uart_rx->packet_size);
 }
 
-static ssize_t strtohex(char* str) {
+//* Private Helper Functions
+
+static ssize_t strtohex(uint8_t* str) {
   ssize_t num = 0;
   if (str != NULL) { // String not empty
-    while (*str != (char)'\0') { // Run till NUL
+    while (*str != (uint8_t)'\0') { // Run till NUL
       // Hex left shift
       num = num << 4U;
       // Add least-significant digit
