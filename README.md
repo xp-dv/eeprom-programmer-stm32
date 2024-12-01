@@ -26,3 +26,7 @@ The device is controlled via instructions sent through UART via the NUCLEO-F303K
 > \< \> = Required, \[ \] = Optional  \
 > All values are in base hex  \
 > Data can be entered with or without spaces separating each byte  \
+
+## Block Diagram
+Block diagram of the intercommunication between the various devices required to build the EEPROM programmer.
+![Block Diagram](./figs/block_diagram.png)
