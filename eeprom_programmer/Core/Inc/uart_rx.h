@@ -6,14 +6,18 @@
 
 typedef enum instruction_code {
   INVALID_INSTRUCTION = 0,
-  READ_INSTRUCTION = 'a', // Read Address
-  WRITE_INSTRUCTION = 'b', // Write Byte
+  SINGLE_READ_INSTRUCTION = 'a', // Read Address
+  SINGLE_WRITE_INSTRUCTION = 'b', // Write Byte
+  MULTI_READ_INSTRUCTION = 'r',
+  MULTI_WRITE_INSTRUCTION = 'w',
 } instruction_code_t;
 
 typedef enum status {
-  UART_RX_EMPTY = -4,
-  UART_RX_INVALID_DATA,
+  UART_RX_EMPTY = -6,
   UART_RX_INVALID_FORMAT,
+  UART_RX_INVALID_DATA,
+  UART_RX_INVALID_RANGE,
+  UART_RX_INVALID_ADDRESS,
   UART_RX_INVALID_INSTRUCTION,
   UART_RX_VALID_PACKET = 0,
   UART_RX_VALID_DATA = 1,
@@ -29,7 +33,7 @@ uart_rx_handle_t uart_rx_init(size_t packet_size, char delimiter, char terminato
 
 uart_rx_status_t uart_rx_parse_instruction(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf);
 
-uart_rx_status_t uart_rx_parse_address(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, eeprom_handle_t eeprom, address_mode_t mode, uart_rx_status_t status);
+uart_rx_status_t uart_rx_parse_address(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, eeprom_handle_t eeprom, uart_rx_status_t status);
 
 uart_rx_status_t uart_rx_parse_data(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, uart_rx_status_t status);
 

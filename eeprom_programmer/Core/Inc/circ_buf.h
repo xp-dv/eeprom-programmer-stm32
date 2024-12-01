@@ -156,5 +156,14 @@ void dump_hex(const uint8_t* start, size_t size, const size_t columns);
  * without any additional formatting.
  */
 void dump_chars(const uint8_t* start, size_t size, const size_t columns);
+/**
+ * @brief Dump Example:
+  #ifdef UNIT_TEST
+  debugf("Packet:\n");
+  dump_hex(uart_rx_packet(uart_rx), uart_rx_size(uart_rx), 0x20);
+  debugf("Buffer:\n");
+  dump_chars(circ_buf_buffer(circ_buf), (circ_buf_size(circ_buf) + 1U), 0x20);
+  #endif
+ */
 
 #endif /* UNIT_TEST */

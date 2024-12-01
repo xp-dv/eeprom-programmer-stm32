@@ -38,14 +38,13 @@ extern "C" {
 /* USER CODE BEGIN ET */
 
 typedef enum address_mode {
-  MODE_SINGLE_ADDRESS = 1,
-  MODE_MULTI_ADDRESS,
+  SINGLE_ADDRESS_MODE = 1,
+  MULTI_ADDRESS_MODE,
 } address_mode_t;
 
 typedef struct eeprom {
   address_mode_t mode;
-  uint16_t start_address;
-  uint16_t end_address;
+  uint16_t address_range[2];
 } eeprom_t;
 
 typedef struct eeprom* eeprom_handle_t;
@@ -89,11 +88,12 @@ typedef struct eeprom* eeprom_handle_t;
  */
 #define UART_PACKET_SIZE (DATA_PACKET_SIZE * (ACH_SIZE + sizeof(char)))
 
-#define PACKET_POLLING_RATE 4 // Hz
+#define PACKET_POLLING_RATE 4U // Hz
 
-#define EEPROM_START_ADDRESS 0
+#define EEPROM_START_ADDRESS 0U
 
-#define EEPROM_MEMORY_SIZE 2048 // Bytes
+#define EEPROM_ADDRESS_SIZE 2048U // Bytes
+#define EEPROM_ADDRESS_MAX (EEPROM_ADDRESS_SIZE - 1U) // Bytes
 
 /* USER CODE END EM */
 
@@ -154,7 +154,7 @@ void Error_Handler(void);
  */
 
 //* Data I/O Bus
-#define GET_DATA_BUS_PORT(bit) (\
+#define DATA_IO_PORT(bit) (\
   (bit) == 0 ? (D5_GPIO_Port) : \
   (bit) == 1 ? (D6_GPIO_Port) : \
   (bit) == 2 ? (D7_GPIO_Port) : \
@@ -164,7 +164,7 @@ void Error_Handler(void);
   (bit) == 6 ? (D11_GPIO_Port) : \
   (bit) == 7 ? (D12_GPIO_Port) : ("0")\
 )
-#define GET_DATA_BUS_PIN(bit) (\
+#define DATA_IO_PIN(bit) (\
   (bit) == 0 ? (D5_Pin) : \
   (bit) == 1 ? (D6_Pin) : \
   (bit) == 2 ? (D7_Pin) : \

@@ -8,9 +8,10 @@
 struct uart_rx {
   uint8_t* ch; // Store UART interrupt byte/char + NUL
   uint8_t* packet;
+  instruction_code_t instruction;
   size_t packet_size;
   uint8_t coded_byte_size; // Size of 1 byte represented in ASCII-Coded hex
-  uint8_t coded_address_size; // Chars required to represent EEPROM_MEMORY_SIZE in ASCII-Coded hex
+  uint8_t coded_address_size; // Chars required to represent EEPROM_ADDRESS_MAX in ASCII-Coded hex
   char delimiter;
   char terminator;
 };
@@ -37,6 +38,7 @@ uart_rx_handle_t uart_rx_init(size_t packet_size, char delimiter, char terminato
   // Initialize members
   uart_rx->ch = calloc(1U, sizeof(uint8_t));
   uart_rx->packet = packet;
+  uart_rx->instruction = UART_RX_INVALID_INSTRUCTION;
   uart_rx->packet_size = packet_size;
   uart_rx->coded_byte_size = 2U;
   uart_rx->coded_address_size = 3U;
@@ -60,13 +62,34 @@ uart_rx_status_t uart_rx_parse_instruction(const uart_rx_handle_t uart_rx, const
     return UART_RX_INVALID_FORMAT;
   }
 
+  uart_rx->instruction = (instruction_code_t)*uart_rx->packet;
   return UART_RX_VALID_PACKET;
 }
 
-uart_rx_status_t uart_rx_parse_address(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, eeprom_handle_t eeprom, address_mode_t mode, uart_rx_status_t status) {
-  for (uint8_t i = 0U; i < mode; ++i) {
-    status = uart_rx_strtohex(uart_rx, circ_buf, (size_t*)&eeprom->start_address, uart_rx->coded_address_size);
+uart_rx_status_t uart_rx_parse_address(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, eeprom_handle_t eeprom, uart_rx_status_t status) {
+  if (eeprom->mode == SINGLE_ADDRESS_MODE) {
+    status = uart_rx_strtohex(uart_rx, circ_buf, (size_t*)&eeprom->address_range[0], uart_rx->coded_address_size);
+    if (status == UART_RX_VALID_DATA) {
+      status = UART_RX_INVALID_FORMAT;
+    }
+    circ_buf_clear(circ_buf);
+    return status;
+  } else {
+    // Start Address
+    status = uart_rx_strtohex(uart_rx, circ_buf, (size_t*)&eeprom->address_range[0], uart_rx->coded_address_size);
     if (status != UART_RX_VALID_DATA) {
+      if (status == UART_RX_VALID_PACKET) {
+        status = UART_RX_INVALID_FORMAT;
+      }
+      circ_buf_clear(circ_buf);
+      return status;
+    }
+    // End Address
+    status = uart_rx_strtohex(uart_rx, circ_buf, (size_t*)&eeprom->address_range[1], uart_rx->coded_address_size);
+    if (status != UART_RX_VALID_PACKET) {
+      if (status == UART_RX_VALID_DATA) {
+        status = UART_RX_INVALID_FORMAT;
+      }
       circ_buf_clear(circ_buf);
       return status;
     }
@@ -151,7 +174,7 @@ uint8_t* uart_rx_packet(const uart_rx_handle_t uart_rx) {
 instruction_code_t uart_rx_instruction(const uart_rx_handle_t uart_rx) {
   assert_param(uart_rx); // Ensure handle
 
-  return (*uart_rx->packet);
+  return (uart_rx->instruction);
 }
 
 size_t uart_rx_size(const uart_rx_handle_t uart_rx) {

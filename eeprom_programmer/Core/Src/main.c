@@ -35,9 +35,13 @@
 
 typedef enum system_state {
   STARTUP_STATE,
-  IDLE_STATE,
-  READ_STATE,
-  WRITE_STATE,
+  INSTRUCTION_STATE,
+  ADDRESS_STATE,
+  DATA_STATE,
+  SINGLE_READ_STATE,
+  SINGLE_WRITE_STATE,
+  MULTI_READ_STATE,
+  MULTI_WRITE_STATE,
 } system_state_t;
 
 /* USER CODE END PTD */
@@ -57,7 +61,7 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
-char printf_buffer[PRINTF_BUF_SIZE] = "";
+char printf_buffer[PRINTF_BUF_SIZE] = ""; // For print.h
 
 uart_rx_handle_t uart_rx;
 circ_buf_handle_t circ_buf;
@@ -71,16 +75,14 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
+//* Private Helper Functions
+
+static void print_status(uart_rx_status_t status);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-//* Private Functions
-
-void print_status(uart_rx_status_t status) {
-  printf("[%02d]", status);
-}
 
 //* State Event Handlers
 
@@ -89,7 +91,7 @@ system_state_t startup_state_handler(system_state_t system_state) {
   HAL_Delay(500);
 
   // Startup Message
-  uint8_t msg[UART_PACKET_SIZE] = "========== EEPROM PROGRAMMER ==========\n";
+  uint8_t msg[UART_PACKET_SIZE] = "========== AT28C16 PROGRAMMER ==========\n";
   HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen((char*)msg), HAL_MAX_DELAY);
 
   // Init Circular Buffer Struct
@@ -102,9 +104,8 @@ system_state_t startup_state_handler(system_state_t system_state) {
 
   // Init EEPROM Struct
   eeprom_t at28c16 = {
-    .mode = MODE_SINGLE_ADDRESS,
-    .start_address = 0U,
-    .end_address = 0U,
+    .mode = SINGLE_ADDRESS_MODE,
+    .address_range = {0xFFF, 0xFFF},
   };
   eeprom = &at28c16;
 
@@ -114,51 +115,149 @@ system_state_t startup_state_handler(system_state_t system_state) {
   // Startup Delay
   HAL_Delay(500);
 
-  return IDLE_STATE;
+  return INSTRUCTION_STATE;
 }
 
-system_state_t idle_state_handler(system_state_t system_state) {
+system_state_t instruction_state_handler(system_state_t system_state) {
   static uart_rx_status_t status = UART_RX_EMPTY;
   uart_rx_status_t new_status = uart_rx_parse_instruction(uart_rx, circ_buf);
   if (new_status == UART_RX_VALID_PACKET) {
-    print_status(new_status);
     switch (uart_rx_instruction(uart_rx)) {
-    case READ_INSTRUCTION:
-      return READ_STATE;
+    case SINGLE_READ_INSTRUCTION:
+      printf("--- Single-Byte Read ---\n");
+      printf("Enter Address:\n");
+      eeprom->mode = SINGLE_ADDRESS_MODE;
+      return ADDRESS_STATE;
       break;
-    case WRITE_INSTRUCTION:
-      return WRITE_STATE;
+    case SINGLE_WRITE_INSTRUCTION:
+      printf("--- Single-Byte Write ---\n");
+      printf("Enter Address:\n");
+      eeprom->mode = SINGLE_ADDRESS_MODE;
+      return ADDRESS_STATE;
+      break;
+    case MULTI_READ_INSTRUCTION:
+      printf("--- Multi-Byte Read ---\n");
+      printf("Enter Addresses:\n");
+      eeprom->mode = MULTI_ADDRESS_MODE;
+      return ADDRESS_STATE;
+      break;
+    case MULTI_WRITE_INSTRUCTION:
+      printf("--- Multi-Byte Write ---\n");
+      printf("Enter Addresses:\n");
+      eeprom->mode = MULTI_ADDRESS_MODE;
+      return ADDRESS_STATE;
       break;
 
     default:
-      printf("[Invalid Instruction]\n");
-      return IDLE_STATE;
+      new_status = UART_RX_INVALID_INSTRUCTION;
+      print_status(new_status);
       break;
     }
   } else if ((new_status != UART_RX_EMPTY) && (new_status != status)) {
     print_status(new_status);
-    printf("[Invalid Instruction]\n");
-
-    #ifdef UNIT_TEST
-    debugf("Packet:\n");
-    dump_hex(uart_rx_packet(uart_rx), uart_rx_size(uart_rx), 0x20);
-    debugf("Buffer:\n");
-    dump_chars(circ_buf_buffer(circ_buf), (circ_buf_size(circ_buf) + 1U), 0x20);
-    #endif
   }
   status = new_status;
   HAL_Delay(1000 / PACKET_POLLING_RATE);
-  return IDLE_STATE;
+  return INSTRUCTION_STATE;
+}
+
+system_state_t address_state_handler(system_state_t system_state) {
+  static uart_rx_status_t status = UART_RX_EMPTY;
+  uart_rx_status_t new_status = uart_rx_parse_address(uart_rx, circ_buf, eeprom, status);
+  if (new_status == UART_RX_VALID_PACKET) {
+    if ((eeprom->address_range[0] <= EEPROM_ADDRESS_MAX) && (eeprom->address_range[1] <= EEPROM_ADDRESS_MAX)) {
+      switch (uart_rx_instruction(uart_rx)) {
+      case SINGLE_READ_INSTRUCTION:
+        printf("--- Reading %03X ---\n", eeprom->address_range[0] % 0x1000);
+        return SINGLE_READ_STATE;
+        break;
+      case SINGLE_WRITE_INSTRUCTION:
+        printf("--- Writing %03X ---\n", eeprom->address_range[0] % 0x1000);
+        return SINGLE_WRITE_STATE;
+        break;
+      case MULTI_READ_INSTRUCTION:
+        if (eeprom->address_range[1] <= eeprom->address_range[0]) {
+          new_status = UART_RX_INVALID_RANGE;
+          print_status(new_status);
+          return ADDRESS_STATE;
+        }
+        printf("--- Reading %03X to %03X ---\n", eeprom->address_range[0] % 0x1000, eeprom->address_range[1] % 0x1000);
+        return DATA_STATE;
+        break;
+      case MULTI_WRITE_INSTRUCTION:
+        if (eeprom->address_range[1] <= eeprom->address_range[0]) {
+          new_status = UART_RX_INVALID_RANGE;
+          print_status(new_status);
+          return ADDRESS_STATE;
+        }
+        printf("--- Writing %03X to %03X ---\n", eeprom->address_range[0] % 0x1000, eeprom->address_range[1] % 0x1000);
+        return DATA_STATE;
+        break;
+      default:
+        new_status = UART_RX_INVALID_INSTRUCTION;
+        print_status(new_status);
+        return INSTRUCTION_STATE;
+        break;
+      }
+    } else {
+      new_status = UART_RX_INVALID_ADDRESS;
+      print_status(new_status);
+    }
+  } else if ((new_status != UART_RX_EMPTY) && (new_status != status)) {
+    print_status(new_status);
+  }
+  status = new_status;
+  HAL_Delay(1000 / PACKET_POLLING_RATE);
+  return ADDRESS_STATE;
+}
+
+system_state_t data_state_handler(system_state_t system_state) {
+  // TODO: Use same format as address_state_handler
+  HAL_Delay(1000 / PACKET_POLLING_RATE);
+  return INSTRUCTION_STATE; //! return DATA_STATE;
 }
 
 system_state_t read_state_handler(system_state_t system_state) {
-  printf("[Read]\n");
-  return IDLE_STATE;
+
+  return INSTRUCTION_STATE;
 }
 
 system_state_t write_state_handler(system_state_t system_state) {
-  printf("[Write]\n");
-  return IDLE_STATE;
+
+  return INSTRUCTION_STATE;
+}
+
+//* Private Helper Functions
+
+static void print_status(uart_rx_status_t status) {
+  char status_msg[64] = "";
+  switch(status) {
+  case UART_RX_EMPTY:
+    sprintf(status_msg, "Empty");
+    break;
+  case UART_RX_INVALID_FORMAT:
+    sprintf(status_msg, "Invalid Format");
+    break;
+  case UART_RX_INVALID_DATA:
+    sprintf(status_msg, "Invalid Data");
+    break;
+  case UART_RX_INVALID_RANGE:
+    sprintf(status_msg, "Invalid Range");
+    break;
+  case UART_RX_INVALID_ADDRESS:
+    sprintf(status_msg, "Invalid Address");
+    break;
+  case UART_RX_INVALID_INSTRUCTION:
+    sprintf(status_msg, "Invalid Instruction");
+    break;
+  case UART_RX_VALID_PACKET:
+    sprintf(status_msg, "Valid Packet");
+    break;
+  case UART_RX_VALID_DATA:
+    sprintf(status_msg, "Valid Data");
+    break;
+  }
+  printf("%02d: %s\n", (int)status, (uint8_t*)status_msg);
 }
 
 /* USER CODE END 0 */
@@ -213,13 +312,19 @@ int main(void)
     case STARTUP_STATE:
       system_state = startup_state_handler(system_state);
       break;
-    case IDLE_STATE:
-      system_state = idle_state_handler(system_state);
+    case INSTRUCTION_STATE:
+      system_state = instruction_state_handler(system_state);
       break;
-    case READ_STATE:
+    case ADDRESS_STATE:
+      system_state = address_state_handler(system_state);
+      break;
+    case DATA_STATE:
+      system_state = data_state_handler(system_state);
+      break;
+    case SINGLE_READ_STATE:
       system_state = read_state_handler(system_state);
       break;
-    case WRITE_STATE:
+    case SINGLE_WRITE_STATE:
       system_state = write_state_handler(system_state);
       break;
 
