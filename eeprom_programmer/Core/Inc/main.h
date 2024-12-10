@@ -37,18 +37,6 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
-typedef enum address_mode {
-  SINGLE_ADDRESS_MODE = 1,
-  MULTI_ADDRESS_MODE,
-} address_mode_t;
-
-typedef struct eeprom {
-  address_mode_t mode;
-  uint16_t address_range[2];
-} eeprom_t;
-
-typedef struct eeprom* eeprom_handle_t;
-
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -118,6 +106,8 @@ void Error_Handler(void);
 #define SHIFT_LATCH_GPIO_Port GPIOA
 #define SHIFT_DATA_Pin GPIO_PIN_4
 #define SHIFT_DATA_GPIO_Port GPIOA
+#define OUTPUT_ENABLE_Pin GPIO_PIN_5
+#define OUTPUT_ENABLE_GPIO_Port GPIOA
 #define D6_Pin GPIO_PIN_1
 #define D6_GPIO_Port GPIOB
 #define D9_Pin GPIO_PIN_8
@@ -140,40 +130,6 @@ void Error_Handler(void);
 #define D5_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-
-/**
- * ? Pins to SN74HC595 Shift Registers
- * D4 // Connect to SER (Serial)
- * D3 // Connect to RCLK (Storage Register Clock)
- * D1 // Connect to SRCLK (Shift Register Clock)
- */
-
-/**
- * ? Pins to AT28C16 EEPROM
- * D13 // Connect to Write Enable (~WE)
- */
-
-//* Data I/O Bus
-#define DATA_IO_PORT(bit) (\
-  (bit) == 0 ? (D5_GPIO_Port) : \
-  (bit) == 1 ? (D6_GPIO_Port) : \
-  (bit) == 2 ? (D7_GPIO_Port) : \
-  (bit) == 3 ? (D8_GPIO_Port) : \
-  (bit) == 4 ? (D9_GPIO_Port) : \
-  (bit) == 5 ? (D10_GPIO_Port) : \
-  (bit) == 6 ? (D11_GPIO_Port) : \
-  (bit) == 7 ? (D12_GPIO_Port) : ("0")\
-)
-#define DATA_IO_PIN(bit) (\
-  (bit) == 0 ? (D5_Pin) : \
-  (bit) == 1 ? (D6_Pin) : \
-  (bit) == 2 ? (D7_Pin) : \
-  (bit) == 3 ? (D8_Pin) : \
-  (bit) == 4 ? (D9_Pin) : \
-  (bit) == 5 ? (D10_Pin) : \
-  (bit) == 6 ? (D11_Pin) : \
-  (bit) == 7 ? (D12_Pin) : ("0")\
-)
 
 /* USER CODE END Private defines */
 

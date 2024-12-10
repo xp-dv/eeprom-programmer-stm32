@@ -1,5 +1,6 @@
 #include "uart_rx.h"
 #include "circ_buf.h"
+#include "eeprom.h"
 #include "main.h" // Gives assert_param
 #include <stdlib.h>
 #include <stdint.h>
@@ -68,7 +69,7 @@ uart_rx_status_t uart_rx_parse_instruction(const uart_rx_handle_t uart_rx, const
 
 uart_rx_status_t uart_rx_parse_address(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, eeprom_handle_t eeprom, uart_rx_status_t status) {
   if (eeprom->mode == SINGLE_READ_MODE || eeprom->mode == SINGLE_WRITE_MODE) {
-    status = uart_rx_strtohex(uart_rx, circ_buf, (size_t*)&eeprom->address_range[0], uart_rx->coded_address_size);
+    status = uart_rx_strtohex(uart_rx, circ_buf, (size_t*)&eeprom->addresses[0], uart_rx->coded_address_size);
     if (status == UART_RX_VALID_DATA) {
       status = UART_RX_INVALID_FORMAT;
     }
@@ -76,7 +77,7 @@ uart_rx_status_t uart_rx_parse_address(const uart_rx_handle_t uart_rx, const cir
     return status;
   } else {
     // Start Address
-    status = uart_rx_strtohex(uart_rx, circ_buf, (size_t*)&eeprom->address_range[0], uart_rx->coded_address_size);
+    status = uart_rx_strtohex(uart_rx, circ_buf, (size_t*)&eeprom->addresses[0], uart_rx->coded_address_size);
     if (status != UART_RX_VALID_DATA) {
       if (status == UART_RX_VALID_PACKET) {
         status = UART_RX_INVALID_FORMAT;
@@ -85,7 +86,7 @@ uart_rx_status_t uart_rx_parse_address(const uart_rx_handle_t uart_rx, const cir
       return status;
     }
     // End Address
-    status = uart_rx_strtohex(uart_rx, circ_buf, (size_t*)&eeprom->address_range[1], uart_rx->coded_address_size);
+    status = uart_rx_strtohex(uart_rx, circ_buf, (size_t*)&eeprom->addresses[1], uart_rx->coded_address_size);
     if (status != UART_RX_VALID_PACKET) {
       if (status == UART_RX_VALID_DATA) {
         status = UART_RX_INVALID_FORMAT;

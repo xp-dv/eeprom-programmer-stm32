@@ -1,6 +1,7 @@
 #pragma once
 
 #include "circ_buf.h"
+#include "eeprom.h"
 #include <stdint.h>
 #include <stdio.h>
 

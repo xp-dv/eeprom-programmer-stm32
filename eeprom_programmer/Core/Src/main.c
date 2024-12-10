@@ -24,6 +24,8 @@
 
 #include "circ_buf.h"
 #include "uart_rx.h"
+#include "eeprom.h"
+#include "pin_manipulation.h"
 #include "print.h" // UART printf() and debugf()
 #include <stdint.h>
 #include <string.h>
@@ -104,9 +106,14 @@ system_state_t startup_state_handler(system_state_t system_state) {
 
   // Init EEPROM Struct
   eeprom_t at28c16 = {
-    .mode = SINGLE_ADDRESS_MODE,
+    .data_port = SHIFT_DATA_GPIO_Port,
+    .data_pin = SHIFT_DATA_Pin,
+    .clock_port = SHIFT_CLK_GPIO_Port,
+    .clock_pin = SHIFT_CLK_Pin,
+    .latch_port = SHIFT_LATCH_GPIO_Port,
+    .latch_pin = SHIFT_LATCH_Pin,
     .mode = SINGLE_READ_MODE,
-    .address_range = {0xFFF, 0xFFF},
+    .addresses = {0xFFF, 0xFFF},
   };
   eeprom = &at28c16;
 
@@ -170,14 +177,14 @@ system_state_t address_state_handler(system_state_t system_state) {
   static uart_rx_status_t status = UART_RX_EMPTY;
   uart_rx_status_t new_status = uart_rx_parse_address(uart_rx, circ_buf, eeprom, status);
   if (new_status == UART_RX_VALID_PACKET) {
-    if ((eeprom->address_range[0] <= EEPROM_ADDRESS_MAX) && (eeprom->address_range[1] <= EEPROM_ADDRESS_MAX)) {
+    if ((eeprom->addresses[0] <= EEPROM_ADDRESS_MAX) && (eeprom->addresses[1] <= EEPROM_ADDRESS_MAX)) {
       switch (eeprom->mode) {
         case SINGLE_READ_MODE:
           return SINGLE_READ_STATE;
           break;
 
         case SINGLE_WRITE_MODE:
-          printf("--- Writing Address [%03X] ---\n", eeprom->address_range[0] % 0x1000);
+          printf("--- Writing Address %03X ---\n", eeprom->addresses[0] % 0x1000);
           printf("Enter Data:\n");
           return DATA_STATE;
           break;
@@ -187,7 +194,7 @@ system_state_t address_state_handler(system_state_t system_state) {
           break;
 
         case MULTI_WRITE_MODE:
-          printf("--- Writing Addresses [%03X:%03X] ---\n", eeprom->address_range[0] % 0x1000, eeprom->address_range[1] % 0x1000);
+          printf("--- Writing Addresses %03X:%03X ---\n", eeprom->addresses[0] % 0x1000, eeprom->addresses[1] % 0x1000);
           printf("Enter Data:\n");
           return DATA_STATE;
           break;
@@ -237,43 +244,51 @@ system_state_t data_state_handler(system_state_t system_state) {
 }
 
 system_state_t single_read_state_handler(system_state_t system_state) {
-  printf("--- Reading Address [%03X] ... ", eeprom->address_range[0] % 0x1000);
+  printf("--- Reading Address %03X ---\n", eeprom->addresses[0] % 0x1000);
 
-  printf("Read Complete ---\n");
+  printf("  %03X: %02X\n", eeprom->addresses[0] % 0x1000, read_address(eeprom));
+
+  printf("--- Read Complete ---\n");
   printf("Enter Instruction:\n");
   return INSTRUCTION_STATE;
 }
 
 system_state_t single_write_state_handler(system_state_t system_state) {
-  printf("--- Writing Data ... ");
+  printf("--- Writing Data ---\n");
 
-  printf("Write Complete ---\n");
+  write_byte(eeprom, *uart_rx_packet(uart_rx));
+
+  printf("--- Write Complete ---\n");
   printf("Enter Instruction:\n");
   return INSTRUCTION_STATE;
 }
 
 system_state_t multi_read_state_handler(system_state_t system_state) {
   // If out of range, return to ADDRESS_STATE
-  if (eeprom->address_range[1] <= eeprom->address_range[0]) {
+  if (eeprom->addresses[1] <= eeprom->addresses[0]) {
     print_status(UART_RX_INVALID_RANGE);
     return ADDRESS_STATE;
   }
-  printf("--- Reading Addresses [%03X:%03X] ... ", eeprom->address_range[0] % 0x1000, eeprom->address_range[1] % 0x1000);
+  printf("--- Reading Addresses %03X:%03X ---\n", eeprom->addresses[0] % 0x1000, eeprom->addresses[1] % 0x1000);
 
-  printf("Read Complete ---\n");
+  // TODO:
+
+  printf("--- Read Complete ---\n");
   printf("Enter Instruction:\n");
   return INSTRUCTION_STATE;
 }
 
 system_state_t multi_write_state_handler(system_state_t system_state) {
   // If out of range, return to ADDRESS_STATE
-  if (eeprom->address_range[1] <= eeprom->address_range[0]) {
+  if (eeprom->addresses[1] <= eeprom->addresses[0]) {
     print_status(UART_RX_INVALID_RANGE);
     return ADDRESS_STATE;
   }
-  printf("--- Writing Data ... ");
+  printf("--- Writing Data ---\n");
 
-  printf("Write Complete ---\n");
+  // TODO:
+
+  printf("--- Write Complete ---\n");
   printf("Enter Instruction:\n");
   return INSTRUCTION_STATE;
 }
@@ -482,10 +497,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, SHIFT_CLK_Pin|SHIFT_LATCH_Pin|SHIFT_DATA_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, SHIFT_CLK_Pin|SHIFT_LATCH_Pin|SHIFT_DATA_Pin|OUTPUT_ENABLE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(WRITE_ENABLE_GPIO_Port, WRITE_ENABLE_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(WRITE_ENABLE_GPIO_Port, WRITE_ENABLE_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pins : D7_Pin D8_Pin */
   GPIO_InitStruct.Pin = D7_Pin|D8_Pin;
@@ -493,8 +508,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : SHIFT_CLK_Pin SHIFT_LATCH_Pin SHIFT_DATA_Pin */
-  GPIO_InitStruct.Pin = SHIFT_CLK_Pin|SHIFT_LATCH_Pin|SHIFT_DATA_Pin;
+  /*Configure GPIO pins : SHIFT_CLK_Pin SHIFT_LATCH_Pin SHIFT_DATA_Pin OUTPUT_ENABLE_Pin */
+  GPIO_InitStruct.Pin = SHIFT_CLK_Pin|SHIFT_LATCH_Pin|SHIFT_DATA_Pin|OUTPUT_ENABLE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

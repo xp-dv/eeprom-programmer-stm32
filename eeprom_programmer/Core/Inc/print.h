@@ -1,6 +1,7 @@
 #pragma once
 
 #include "main.h"
+#include <string.h>
 #include <stdio.h>
 
 #define PRINTF_TIMEOUT 50
