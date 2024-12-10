@@ -67,7 +67,7 @@ uart_rx_status_t uart_rx_parse_instruction(const uart_rx_handle_t uart_rx, const
 }
 
 uart_rx_status_t uart_rx_parse_address(const uart_rx_handle_t uart_rx, const circ_buf_handle_t circ_buf, eeprom_handle_t eeprom, uart_rx_status_t status) {
-  if (eeprom->mode == SINGLE_ADDRESS_MODE) {
+  if (eeprom->mode == SINGLE_READ_MODE || eeprom->mode == SINGLE_WRITE_MODE) {
     status = uart_rx_strtohex(uart_rx, circ_buf, (size_t*)&eeprom->address_range[0], uart_rx->coded_address_size);
     if (status == UART_RX_VALID_DATA) {
       status = UART_RX_INVALID_FORMAT;

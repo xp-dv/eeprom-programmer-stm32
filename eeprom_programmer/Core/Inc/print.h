@@ -18,6 +18,9 @@ HAL_UART_Transmit(&huart2, (uint8_t*)printf_buffer, (uint16_t)strlen(printf_buff
 
 //* Debugging
 
+/**
+ * @brief Comment out UNIT_TEST below to disable all debug-specific UART prints.
+ */
 #ifndef UNIT_TEST
 #define UNIT_TEST
 #endif /* UNIT_TEST */

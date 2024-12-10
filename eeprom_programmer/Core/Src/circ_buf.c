@@ -208,7 +208,7 @@ static void increment_head(const circ_buf_handle_t circ_buf) {
 
 //* Public Testing Functions
 
-// #ifdef UNIT_TEST
+#ifdef UNIT_TEST
 
 void dump_indices(const circ_buf_handle_t circ_buf) {
   debugf("Head: %u\n", circ_buf->head);
@@ -285,4 +285,4 @@ void dump_chars(const uint8_t* start, size_t size, const size_t columns) {
   debugf("\n");
 }
 
-// #endif /* UNIT_TEST */
+#endif /* UNIT_TEST */
