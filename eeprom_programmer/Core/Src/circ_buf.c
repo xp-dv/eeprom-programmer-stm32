@@ -208,8 +208,6 @@ static void increment_head(const circ_buf_handle_t circ_buf) {
 
 //* Public Testing Functions
 
-#ifdef UNIT_TEST
-
 void dump_indices(const circ_buf_handle_t circ_buf) {
   debugf("Head: %u\n", circ_buf->head);
   debugf("Tail: %u\n", circ_buf->tail);
@@ -250,21 +248,21 @@ void dump_hex(const uint8_t* start, size_t size, const size_t columns) {
 void dump_chars(const uint8_t* start, size_t size, const size_t columns) {
   // Ensure arguments
   if (!(start && size && columns)) {
-    debugf("Invalid Args\n");
+    printf("Invalid Args\n");
     return;
   }
 
   size_t multirow = (columns != SIZE_MAX);
 
   if (multirow) {
-    debugf("  0000:");
+    printf("  0000:");
   }
 
   for (size_t i = 0; i < size; ++i) {
     // Jump to next row
     if (multirow) {
       if ((i > 0) && (i < size) && (i % columns == 0)) {
-        debugf("\n  %04X:", i);
+        printf("\n  %04X:", i);
       }
     }
     // Print data
@@ -272,17 +270,15 @@ void dump_chars(const uint8_t* start, size_t size, const size_t columns) {
     if (c < 0x20 || c >= 0x7F) { // 0x20 = SPACE, 0x7F = DEL
       // Handle non-printable characters
       if (c == 0) {
-        debugf("  - ");
+        printf("  - ");
       } else {
-        debugf(" x%02X", c % 0x100U);
+        printf(" x%02X", c % 0x100U);
       }
     } else {
       // Handle printable characters
-      debugf(" '%c'", c);
+      printf(" '%c'", c);
     }
   }
 
-  debugf("\n");
+  printf("\n");
 }
-
-#endif /* UNIT_TEST */

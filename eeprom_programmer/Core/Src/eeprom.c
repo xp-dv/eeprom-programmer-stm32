@@ -1,5 +1,6 @@
 #include "eeprom.h"
 #include "pin_manipulation.h"
+#include "circ_buf.h"
 #include "main.h"
 #include "print.h"
 
@@ -12,7 +13,7 @@
  * @param eeprom Pointer to an EEPROM instance.
  * @return uint8_t 
  */
-uint8_t read_address(eeprom_handle_t eeprom);
+uint8_t read_address(eeprom_handle_t eeprom, uint16_t address);
 /**
  * @brief Writes byte to EEPROM at given address.
  * 
@@ -21,7 +22,7 @@ uint8_t read_address(eeprom_handle_t eeprom);
  * @param eeprom Pointer to an EEPROM instance.
  * @param byte Byte to write to EEPROM.
  */
-void write_byte(eeprom_handle_t eeprom, uint8_t byte);
+void write_byte(eeprom_handle_t eeprom, uint16_t address, uint8_t byte);
 
 //* Public EEPROM Programming Functions
 
@@ -38,9 +39,9 @@ void set_address(eeprom_handle_t eeprom, uint16_t address) {
   pin_write(eeprom->latch_port, eeprom->latch_pin, GPIO_PIN_RESET);
 }
 
-uint8_t read_address(eeprom_handle_t eeprom) {
+uint8_t read_address(eeprom_handle_t eeprom, uint16_t address) {
   // Read data bus to byte
-  set_address(eeprom, eeprom->addresses[0]);
+  set_address(eeprom, address);
   uint8_t byte = 0U;
   for (int8_t pin = 7; pin >= 0; --pin) {
     byte = (byte << 1U) + pin_read(DATA_BUS_PORT(pin), DATA_BUS_PIN(pin));
@@ -49,9 +50,9 @@ uint8_t read_address(eeprom_handle_t eeprom) {
   return byte;
 }
 
-void write_byte(eeprom_handle_t eeprom, uint8_t byte) {
+void write_byte(eeprom_handle_t eeprom, uint16_t address, uint8_t byte) {
   // Write byte to data bus
-  set_address(eeprom, eeprom->addresses[0]);
+  set_address(eeprom, address);
   for (uint8_t pin = 0U; pin < 8U; pin++) { // Write data to each arduino pin using LSB mask (data & 1), then shifting out the LSB
     // Mask the LSB
     uint8_t bit = byte & 1U;
@@ -61,7 +62,6 @@ void write_byte(eeprom_handle_t eeprom, uint8_t byte) {
 
   // Save the data to the EEPROM
   pin_write(WRITE_ENABLE_GPIO_Port, WRITE_ENABLE_Pin, GPIO_PIN_RESET);
-  // delayMicroseconds(1);
   pin_write(WRITE_ENABLE_GPIO_Port, WRITE_ENABLE_Pin, GPIO_PIN_SET);
   HAL_Delay(5);
 }
@@ -74,7 +74,7 @@ void single_read(eeprom_handle_t eeprom) {
   // Set Output Enable LOW (Enabled)
   pin_write(OUTPUT_ENABLE_GPIO_Port, OUTPUT_ENABLE_Pin, GPIO_PIN_RESET);
 
-  printf("  %03X: %02X\n", eeprom->addresses[0] % 0x1000, read_address(eeprom));
+  printf("  %03X: %02X\n", eeprom->addresses[0] % 0x1000, read_address(eeprom, eeprom->addresses[0]));
 }
 
 void single_write(eeprom_handle_t eeprom, uint8_t byte) {
@@ -85,7 +85,7 @@ void single_write(eeprom_handle_t eeprom, uint8_t byte) {
     pin_mode(DATA_BUS_PORT(pin), DATA_BUS_PIN(pin), PIN_MODE_OUTPUT);
   }
 
-  write_byte(eeprom, byte);
+  write_byte(eeprom, eeprom->addresses[0], byte);
 }
 
 void multi_read(eeprom_handle_t eeprom) {
@@ -96,7 +96,19 @@ void multi_read(eeprom_handle_t eeprom) {
   // Set Output Enable LOW (Enabled)
   pin_write(OUTPUT_ENABLE_GPIO_Port, OUTPUT_ENABLE_Pin, GPIO_PIN_RESET);
 
-  //!
+  uint8_t data_packet[DATA_PACKET_SIZE] = {0};
+  uint16_t address = eeprom->addresses[0];
+  while (address <= eeprom->addresses[1]) {
+    for (uint16_t i = 0U; i < DATA_PACKET_SIZE; ++i) {
+      data_packet[i] = read_address(eeprom, address);
+      if (address == eeprom->addresses[1]) {
+        dump_hex(data_packet, i + 1U, 0x20U);
+        return;
+      }
+      ++address;
+    }
+    dump_hex(data_packet, DATA_PACKET_SIZE, 0x20U);
+  }
 }
 
 void multi_write(eeprom_handle_t eeprom, uint8_t* data) {
@@ -107,5 +119,10 @@ void multi_write(eeprom_handle_t eeprom, uint8_t* data) {
     pin_mode(DATA_BUS_PORT(pin), DATA_BUS_PIN(pin), PIN_MODE_OUTPUT);
   }
 
-  //!
+  const uint16_t size = eeprom->addresses[1] - eeprom->addresses[0] + 1U;
+  uint16_t address = eeprom->addresses[0];
+  for (uint16_t i = 0U; i < size; ++i) {
+    write_byte(eeprom, address, data[i]);
+    ++address;
+  }
 }
