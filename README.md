@@ -54,6 +54,7 @@ The circular buffer uses a head and tail pointer along with a UART interrupt to 
 The circular architecture of the buffer prevents memory from being written outside of the allocated bounds of the buffer.
 
 ## EEPROM Circuit
+![fritzing_schematic](./schematic/breadboard_schematic.png)
 ![breadboard_build](./schematic/breadboard_build.jpg)
 > The AT28C16 EEPROM Programmer uses two serial shift registers for addressing and an 8-bit parallel data bus to enable full read and write of the AT28C16 EEPROM using minimal pins. These design choices allow the use of the small-footprint, breadboard-compatible NUCLEO-F303K8 microcontroller to operate the device with some pins to spare for additional functionality.
 
