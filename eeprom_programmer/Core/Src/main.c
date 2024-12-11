@@ -246,7 +246,7 @@ system_state_t data_state_handler(system_state_t system_state) {
 system_state_t single_read_state_handler(system_state_t system_state) {
   printf("--- Reading Address %03X ---\n", eeprom->addresses[0] % 0x1000);
 
-  printf("  %03X: %02X\n", eeprom->addresses[0] % 0x1000, read_address(eeprom));
+  single_read(eeprom);
 
   printf("--- Read Complete ---\n");
   printf("Enter Instruction:\n");
@@ -256,7 +256,7 @@ system_state_t single_read_state_handler(system_state_t system_state) {
 system_state_t single_write_state_handler(system_state_t system_state) {
   printf("--- Writing Data ---\n");
 
-  write_byte(eeprom, *uart_rx_packet(uart_rx));
+  single_write(eeprom, *uart_rx_packet(uart_rx));
 
   printf("--- Write Complete ---\n");
   printf("Enter Instruction:\n");
@@ -271,7 +271,7 @@ system_state_t multi_read_state_handler(system_state_t system_state) {
   }
   printf("--- Reading Addresses %03X:%03X ---\n", eeprom->addresses[0] % 0x1000, eeprom->addresses[1] % 0x1000);
 
-  // TODO:
+  multi_read(eeprom);
 
   printf("--- Read Complete ---\n");
   printf("Enter Instruction:\n");
@@ -286,7 +286,7 @@ system_state_t multi_write_state_handler(system_state_t system_state) {
   }
   printf("--- Writing Data ---\n");
 
-  // TODO:
+  multi_write(eeprom, uart_rx_packet(uart_rx));
 
   printf("--- Write Complete ---\n");
   printf("Enter Instruction:\n");
