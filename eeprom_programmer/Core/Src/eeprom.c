@@ -61,8 +61,7 @@ void write_byte(eeprom_handle_t eeprom, uint16_t address, uint8_t byte) {
   }
 
   // Save the data to the EEPROM
-  pin_write(WRITE_ENABLE_GPIO_Port, WRITE_ENABLE_Pin, GPIO_PIN_RESET);
-  pin_write(WRITE_ENABLE_GPIO_Port, WRITE_ENABLE_Pin, GPIO_PIN_SET);
+  neg_pulse(WRITE_ENABLE_GPIO_Port, WRITE_ENABLE_Pin);
   HAL_Delay(5);
 }
 
